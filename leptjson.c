@@ -79,35 +79,27 @@ static int lept_parse_number(lept_context*c, lept_value* v){
   if (*p == '0') ++p;
   else {
     if (!ISDIGIT1TO9(*p)) return LEPT_PARSE_INVALID_VALUE;
-    for(; ISDIGIT(*p); ++p);
-  }
+    // 提前给p加一位，是因为上一位已检测
+    for(++p; ISDIGIT(*p); ++p);
+  } 
 
   if (*p == '.') {
     ++p;
     if (!ISDIGIT(*p)) return LEPT_PARSE_INVALID_VALUE;
-    for(; ISDIGIT(*p); ++p);
+    for(++p; ISDIGIT(*p); ++p);
   }
 
   if (*p == 'e' || *p == 'E'){
     ++p;
     if (*p == '+' || *p == '-') ++p;
     if (!ISDIGIT(*p)) return LEPT_PARSE_INVALID_VALUE;
-    for(; ISDIGIT(*p); ++p);
+    for(++p; ISDIGIT(*p); ++p);
   }
   
   v->n = strtod(c->json, NULL);
   v->type = LEPT_NUMBER;
   c->json = p;
   return LEPT_PARSE_OK;
-  // char* end;
-
-  // v->n = strtod(c->json, &end);
-  // if (c->json == end){
-  //   return LEPT_PARSE_INVALID_VALUE;
-  // }
-  // c->json = end;
-  // v->type = LEPT_NUMBER;
-  // return LEPT_PARSE_OK;
 }
 
 
