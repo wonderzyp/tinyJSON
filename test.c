@@ -110,6 +110,11 @@ static void test_parse_root_not_singular() {
     EXPECT_EQ_INT(LEPT_NULL, lept_get_type(&v));
 }
 
+static void test_parse_number_too_big() {
+    TEST_ERROR(LEPT_PARSE_NUMBER_TOO_BIG, "1e309");
+    TEST_ERROR(LEPT_PARSE_NUMBER_TOO_BIG, "-1e309");
+}
+
 static void test_parse() {
     test_parse_expect_value();
     test_parse_invalid_value();
@@ -117,6 +122,7 @@ static void test_parse() {
     test_parse_number();
     test_parse_expect_value();
     test_parse_literal();
+    test_parse_number_too_big();
 }
 
 int main() {
