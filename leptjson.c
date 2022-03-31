@@ -1,6 +1,9 @@
 #include "leptjson.h"
 #include <assert.h>
 #include <stdlib.h>
+#include <math.h> //HUGE_VAL
+#include <errno.h>
+
 
 #define EXPECT(c, ch)  do { assert(*c->json == (ch)); c->json++; } while(0)
 
@@ -97,6 +100,11 @@ static int lept_parse_number(lept_context*c, lept_value* v){
   }
   
   v->n = strtod(c->json, NULL);
+
+  if ((v->n == HUGE_VAL || v->n == -HUGE_VAL) && errno==ERANGE){
+    return LEPT_PARSE_NUMBER_TOO_BIG;
+  }
+
   v->type = LEPT_NUMBER;
   c->json = p;
   return LEPT_PARSE_OK;
@@ -135,5 +143,3 @@ double lept_get_number(const lept_value* v){
   assert(v != NULL && v->type == LEPT_NUMBER);
   return v->n;
 }
-
-
