@@ -10,9 +10,13 @@
 #define ISDIGIT(ch) ((ch) >= '0' && (ch)<='9')
 #define ISDIGIT1TO9(ch) ((ch) >='1' && (ch) <='9')
 
+#define lept_init(v) do { (v)->type = LEPT_NULL; } while(0)
 
 typedef struct {
   const char* json;
+
+  char* stack;  // 动态堆栈的数据
+  size_t size, top;
 }lept_context;
 
 
@@ -96,7 +100,10 @@ int lept_parse(lept_value* v, const char* json){
   int ret;
   assert(v != NULL); // why?
   c.json = json;
-  v->type = LEPT_NULL;
+  c.stack = NULL;
+  c.size = c.top = 0;
+  lept_init(v);
+
   lept_parse_whitespace(&c);
   
   // value后的空白之后不可存在值
@@ -106,6 +113,9 @@ int lept_parse(lept_value* v, const char* json){
     if (*c.json != '\0')
       ret = LEPT_PARSE_ROOT_NOT_SINGULAR;
   }
+  assert(c.top == 0); // 确保所有数据均被弹出
+  free(c.stack);
+
   return ret;
 }
 
@@ -122,4 +132,23 @@ lept_type lept_get_type(const lept_value* v){
 double lept_get_number(const lept_value* v){
   assert(v != NULL && v->type == LEPT_NUMBER);
   return v->n;
+}
+
+void lept_free(lept_value* v){
+  assert(v != NULL);
+  if (v->type == LEPT_STRING){
+    free(v->s.s);
+    // 释放内存后将类型置为NULL，避免重复释放
+    v->type = NULL; // 这里教程是否有误?
+  }
+}
+
+void lept_set_string(lept_value* v, const char* s, size_t len) {
+  assert(v != NULL && (s != NULL || len==0));
+  lept_free(v);
+  v->s.s = (char*)malloc(len+1);
+  memcpy(v->s.s, s, len); // 拷贝一份参数的字符串
+  v->s.s[len]='\0'; // 补上结尾的空字符
+  v->s.len = len;
+  v->type = LEPT_STRING;
 }
