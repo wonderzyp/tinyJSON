@@ -28,50 +28,53 @@ static void lept_parse_whitespace(lept_context* c){
   c->json = p;
 }
 
-// 解析null
-static int lept_parse_null(lept_context* c, lept_value* v){
-  EXPECT(c, 'n');
-  if (c->json[0] != 'u' || c->json[1] != 'l' || c->json[2] != 'l')
-    return LEPT_PARSE_INVALID_VALUE;
+static int lept_parse_literal(lept_context* c, const char* literal, lept_value* v, lept_type type){
+  size_t i;
+  EXPECT(c, literal[0]);
+  for (i=0; literal[i+1]; ++i){ // 注意循环条件的设计
+    if (c->json[i] != literal[i+1]) // 为什么？？？？
+    // 之前写的c->json[i+1]为什么错了？
+      return LEPT_PARSE_INVALID_VALUE; 
+  }
 
-  c->json += 3;
-  v->type = LEPT_NULL;
+  c->json += i;
+  v->type = type;
   return LEPT_PARSE_OK;
 }
 
-// 解析true
-static int lept_parse_true(lept_context* c, lept_value* v){
-  EXPECT(c, 't');
-  if (c->json[0] != 'r' || c->json[1] != 'u' || c->json[2] != 'e')
-    return LEPT_PARSE_INVALID_VALUE;
 
-  c->json += 3;
-  v->type = LEPT_TRUE;
-  return LEPT_PARSE_OK;
-}
+// // 解析null
+// static int lept_parse_null(lept_context* c, lept_value* v){
+//   EXPECT(c, 'n');
+//   if (c->json[0] != 'u' || c->json[1] != 'l' || c->json[2] != 'l')
+//     return LEPT_PARSE_INVALID_VALUE;
 
-// 解析false
-static int lept_parse_false(lept_context* c, lept_value* v){
-  EXPECT(c, 'f');
-  if (c->json[0] != 'a' || c->json[1] != 'l' || c->json[2] != 's' || c->json[3] != 'e')
-    return LEPT_PARSE_INVALID_VALUE;
+//   c->json += 3;
+//   v->type = LEPT_NULL;
+//   return LEPT_PARSE_OK;
+// }
+
+// // 解析true
+// static int lept_parse_true(lept_context* c, lept_value* v){
+//   EXPECT(c, 't');
+//   if (c->json[0] != 'r' || c->json[1] != 'u' || c->json[2] != 'e')
+//     return LEPT_PARSE_INVALID_VALUE;
+
+//   c->json += 3;
+//   v->type = LEPT_TRUE;
+//   return LEPT_PARSE_OK;
+// }
+
+// // 解析false
+// static int lept_parse_false(lept_context* c, lept_value* v){
+//   EXPECT(c, 'f');
+//   if (c->json[0] != 'a' || c->json[1] != 'l' || c->json[2] != 's' || c->json[3] != 'e')
+//     return LEPT_PARSE_INVALID_VALUE;
   
-  c->json += 4;
-  v->type = LEPT_FALSE;
-  return LEPT_PARSE_OK;
-}
-
-
-// 现实值可以是null, false或true
-static int lept_parse_value(lept_context* c, lept_value* v){
-  switch (*c->json){
-    case 'n':  return lept_parse_null(c, v);
-    case 't':  return lept_parse_true(c, v);
-    case 'f':  return lept_parse_false(c, v);
-    case '\0': return LEPT_PARSE_EXPECT_VALUE;  // json只有空白
-    default:   return lept_parse_number(c,v); //
-  };
-}
+//   c->json += 4;
+//   v->type = LEPT_FALSE;
+//   return LEPT_PARSE_OK;
+// }
 
 static int lept_parse_number(lept_context*c, lept_value* v){
 
@@ -108,6 +111,17 @@ static int lept_parse_number(lept_context*c, lept_value* v){
   v->type = LEPT_NUMBER;
   c->json = p;
   return LEPT_PARSE_OK;
+}
+
+// 现实值可以是null, false或true
+static int lept_parse_value(lept_context* c, lept_value* v){
+  switch (*c->json){
+    case 'n':  return lept_parse_literal(c, "null", v, LEPT_NULL);
+    case 't':  return lept_parse_literal(c, "true", v, LEPT_TRUE);
+    case 'f':  return lept_parse_literal(c, "false", v, LEPT_FALSE);
+    case '\0': return LEPT_PARSE_EXPECT_VALUE;  // json只有空白
+    default:   return lept_parse_number(c,v); //
+  };
 }
 
 
