@@ -46,6 +46,56 @@ static int test_pass = 0;
     EXPECT_EQ_INT(type, lept_get_type(&v));\
     }while(0)
 
+#define TEST_STRING(expect, json)\
+    do {\
+        lept_value v;\
+        lept_init(&v);\
+        EXPECT_EQ_INT(LEPT_PARSE_OK, lept_parse(&v, json));\
+        EXPECT_EQ_INT(LEPT_STRING, lept_get_type(&v));\
+        EXPECT_EQ_STRING(expect, lept_get_string(&v), lept_get_string_length(&v));\
+        lept_free(&v);\
+    } while(0)
+
+static void test_parse_string() {
+    TEST_STRING("", "\"\"");
+    TEST_STRING("Hello", "\"Hello\"");
+#if 0
+    TEST_STRING("Hello\nWorld", "\"Hello\\nWorld\"");
+    TEST_STRING("\" \\ / \b \f \n \r \t", "\"\\\" \\\\ \\/ \\b \\f \\n \\r \\t\"");
+#endif
+}
+
+static void test_parse_missing_quotation_mark() {
+    TEST_ERROR(LEPT_PARSE_MISS_QUOTATION_MARK, "\"");
+    TEST_ERROR(LEPT_PARSE_MISS_QUOTATION_MARK, "\"abc");
+}
+
+static void test_parse_invalid_string_escape() {
+#if 0
+    TEST_ERROR(LEPT_PARSE_INVALID_STRING_ESCAPE, "\"\\v\"");
+    TEST_ERROR(LEPT_PARSE_INVALID_STRING_ESCAPE, "\"\\'\"");
+    TEST_ERROR(LEPT_PARSE_INVALID_STRING_ESCAPE, "\"\\0\"");
+    TEST_ERROR(LEPT_PARSE_INVALID_STRING_ESCAPE, "\"\\x12\"");
+#endif
+}
+
+static void test_parse_invalid_string_char() {
+#if 0
+    TEST_ERROR(LEPT_PARSE_INVALID_STRING_CHAR, "\"\x01\"");
+    TEST_ERROR(LEPT_PARSE_INVALID_STRING_CHAR, "\"\x1F\"");
+#endif
+}
+
+static void test_access_string() {
+    lept_value v;
+    lept_init(&v);
+    lept_set_string(&v, "", 0);
+    EXPECT_EQ_STRING("", lept_get_string(&v), lept_get_string_length(&v));
+    lept_set_string(&v, "Hello", 5);
+    EXPECT_EQ_STRING("Hello", lept_get_string(&v), lept_get_string_length(&v));
+    lept_free(&v);
+}
+
 // 合法测试案例
 static void test_parse_number() {
     TEST_NUMBER(0.0, "0");
@@ -133,6 +183,7 @@ static void test_parse() {
     test_parse_expect_value();
     test_parse_literal();
     test_parse_number_too_big();
+    test_parse_string();
 }
 
 int main() {
