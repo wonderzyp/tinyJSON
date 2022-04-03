@@ -56,6 +56,11 @@ TDD目标引导性强，可能导致代码品质下降
 - DRY(don't repeat yourself)原则
 
 
+Union
+---
+节省空间，但调用时可能显得很长
+C11引入匿名Union
 
+使用`#ifndef X #define X ... #endif`：使用者可在编译选项中自设置宏值，未设置则使用缺省值
 
 
