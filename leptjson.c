@@ -105,7 +105,21 @@ static const char* lept_parse_hex4(const char* p, unsigned* u) {
 }
 
 static void lept_encode_utf8(lept_context* c, unsigned u) {
-    /* \TODO */
+    if      (u<=0x7F) 
+        PUTC(c, u & 0xFF);
+    else if (u<=0x7FF){
+        PUTC(c, 0xC0 | ((u>>6) & 0xFF)); // 0xFF = 11111111
+        PUTC(c, 0x80 | ( u     & 0x3F)); // 0x3F = 00111111，只保留低六位
+    } else if (u<=0xFFFF){
+        PUTC(c, 0xE0 | ((u>>12) & 0xFF)); // 0xE0 = 11100000
+        PUTC(c, 0x80 | ((u>> 6) & 0x3F)); // 0x80 = 10000000
+        PUTC(c, 0x80 | ( u      & 0x3F));
+    } else if (u<=0x10FFFF){
+        PUTC(c, 0xF0 | ((u>>18) & 0xFF));
+        PUTC(c, 0x80 | ((u>>12) & 0x3F));
+        PUTC(c, 0x80 | ((u>> 6) & 0x3F));
+        PUTC(c, 0x80 | ( u      & 0x3F));
+    }
 }
 
 #define STRING_ERROR(ret) do { c->top = head; return ret; } while(0)
