@@ -181,12 +181,16 @@ static int lept_parse_string(lept_context* c, lept_value* v) {
     }
 }
 
+// lept_parse_array与lept_parse_value之间会相互引用，需加入函数前向声明
 static int lept_parse_value(lept_context* c, lept_value* v);
 
 static int lept_parse_array(lept_context* c, lept_value* v) {
     size_t size = 0;
     int ret;
     EXPECT(c, '[');
+
+    lept_parse_whitespace(c);
+    
     if (*c->json == ']') {
         c->json++;
         v->type = LEPT_ARRAY;
@@ -195,15 +199,20 @@ static int lept_parse_array(lept_context* c, lept_value* v) {
         return LEPT_PARSE_OK;
     }
     for (;;) {
-        lept_value e;
+        lept_value e;  // 建立临时值, 调用lept_parse_value解析临时值并压栈，遇到]则弹出栈元素
         lept_init(&e);
         if ((ret = lept_parse_value(c, &e)) != LEPT_PARSE_OK)
             return ret;
         memcpy(lept_context_push(c, sizeof(lept_value)), &e, sizeof(lept_value));
         size++;
-        if (*c->json == ',')
+
+        lept_parse_whitespace(c);
+
+        if (*c->json == ','){ // 移动至下一个待解析元素
             c->json++;
-        else if (*c->json == ']') {
+            lept_parse_whitespace(c);
+        }   
+        else if (*c->json == ']') { // 完成解析
             c->json++;
             v->type = LEPT_ARRAY;
             v->u.a.size = size;
