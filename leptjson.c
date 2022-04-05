@@ -210,7 +210,9 @@ static int lept_parse_array(lept_context* c, lept_value* v) {
 
         if (*c->json == ','){ // 移动至下一个待解析元素
             c->json++;
+
             lept_parse_whitespace(c);
+
         }   
         else if (*c->json == ']') { // 完成解析
             c->json++;
@@ -262,6 +264,12 @@ void lept_free(lept_value* v) {
     assert(v != NULL);
     if (v->type == LEPT_STRING)
         free(v->u.s.s);
+
+    if (v->type == LEPT_ARRAY){
+        for (int i=0; i<v->u.a.size; ++i)
+            lept_free(&v->u.a.e[i]);
+        free(v->u.a.e);
+    }
     v->type = LEPT_NULL;
 }
 
