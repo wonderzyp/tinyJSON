@@ -5,16 +5,28 @@
 
 typedef enum { LEPT_NULL, LEPT_FALSE, LEPT_TRUE, LEPT_NUMBER, LEPT_STRING, LEPT_ARRAY, LEPT_OBJECT } lept_type;
 
-typedef struct lept_value lept_value; // 前向声明 forward declare
+typedef struct lept_value lept_value;
+typedef struct lept_member lept_member;
 
+// JSON对象由对象成员组成
+// 对象成员：键值对
+// 键（JSON字符串）: 值（任何JSON值）
 struct lept_value {
     union {
-        // 使用自身类型的指针，因此需前向声明
+        struct { lept_member* m; size_t size; }o;   /* object: members, member count */
         struct { lept_value* e; size_t size; }a;    /* array:  elements, element count */
         struct { char* s; size_t len; }s;           /* string: null-terminated string, string length */
         double n;                                   /* number */
     }u;
     lept_type type;
+};
+
+// 成员由键值对组成, klen保留键字符串k的长度
+// 成员的键是字符串，出于性能考虑，不使用lept_value存储键
+// 避免浪费lept_type成员
+struct lept_member {
+    char* k; size_t klen;   /* member key string, key string length */
+    lept_value v;           /* member value */
 };
 
 enum {
@@ -28,7 +40,10 @@ enum {
     LEPT_PARSE_INVALID_STRING_CHAR,
     LEPT_PARSE_INVALID_UNICODE_HEX,
     LEPT_PARSE_INVALID_UNICODE_SURROGATE,
-    LEPT_PARSE_MISS_COMMA_OR_SQUARE_BRACKET
+    LEPT_PARSE_MISS_COMMA_OR_SQUARE_BRACKET,
+    LEPT_PARSE_MISS_KEY,
+    LEPT_PARSE_MISS_COLON,
+    LEPT_PARSE_MISS_COMMA_OR_CURLY_BRACKET
 };
 
 #define lept_init(v) do { (v)->type = LEPT_NULL; } while(0)
@@ -53,5 +68,10 @@ void lept_set_string(lept_value* v, const char* s, size_t len);
 
 size_t lept_get_array_size(const lept_value* v);
 lept_value* lept_get_array_element(const lept_value* v, size_t index);
+
+size_t lept_get_object_size(const lept_value* v);
+const char* lept_get_object_key(const lept_value* v, size_t index);
+size_t lept_get_object_key_length(const lept_value* v, size_t index);
+lept_value* lept_get_object_value(const lept_value* v, size_t index);
 
 #endif /* LEPTJSON_H__ */
