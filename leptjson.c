@@ -260,7 +260,7 @@ static int lept_parse_object(lept_context* c, lept_value* v) {
             break;
         }
         if ((ret = lept_parse_string_raw(c, &str, &m.klen))!=LEPT_PARSE_OK) break;
-        memcpy(m.k = (char*)malloc(m.klen+1),str,m.klen);
+        memcpy(m.k = (char*)malloc(m.klen+1), str,m.klen);
         m.k[m.klen] = '\0';
 
         /* \todo parse ws colon ws */
@@ -298,8 +298,13 @@ static int lept_parse_object(lept_context* c, lept_value* v) {
         }
     }
     /* \todo Pop and free members on the stack */
-    for (int i=0; i<size; ++i)
-        lept_free((lept_member*)lept_context_pop(c, sizeof(lept_member)));
+    free(m.k);
+    for (int i=0; i<size; ++i){
+        lept_member* m = (lept_member*)lept_context_pop(c, sizeof(lept_member));
+        free(m->k);
+        lept_free(&m->v);
+    }
+        
     return ret;
 }
 
@@ -348,6 +353,13 @@ void lept_free(lept_value* v) {
             for (i = 0; i < v->u.a.size; i++)
                 lept_free(&v->u.a.e[i]);
             free(v->u.a.e);
+            break;
+        case LEPT_OBJECT:
+            for(i=0; i< v->u.o.size; ++i){
+                free(v->u.o.m[i].k);
+                lept_free(&v->u.o.m[i].v);
+            }
+            free(v->u.o.m);
             break;
         default: break;
     }
