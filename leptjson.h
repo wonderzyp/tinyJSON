@@ -5,10 +5,11 @@
 
 typedef enum { LEPT_NULL, LEPT_FALSE, LEPT_TRUE, LEPT_NUMBER, LEPT_STRING, LEPT_ARRAY, LEPT_OBJECT } lept_type;
 
-typedef struct lept_value lept_value;
+typedef struct lept_value lept_value; // 前向声明 forward declare
 
 struct lept_value {
     union {
+        // 使用自身类型的指针，因此需前向声明
         struct { lept_value* e; size_t size; }a;    /* array:  elements, element count */
         struct { char* s; size_t len; }s;           /* string: null-terminated string, string length */
         double n;                                   /* number */

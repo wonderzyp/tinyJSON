@@ -24,6 +24,7 @@ typedef struct {
     size_t size, top;
 }lept_context;
 
+// 每次可压入任意大小的数据
 static void* lept_context_push(lept_context* c, size_t size) {
     void* ret;
     assert(size > 0);
@@ -201,8 +202,9 @@ static int lept_parse_array(lept_context* c, lept_value* v) {
     for (;;) {
         lept_value e;  // 建立临时值, 调用lept_parse_value解析临时值并压栈，遇到]则弹出栈元素
         lept_init(&e);
+
         if ((ret = lept_parse_value(c, &e)) != LEPT_PARSE_OK)
-            return ret;
+            break;
         memcpy(lept_context_push(c, sizeof(lept_value)), &e, sizeof(lept_value));
         size++;
 
@@ -222,9 +224,15 @@ static int lept_parse_array(lept_context* c, lept_value* v) {
             memcpy(v->u.a.e = (lept_value*)malloc(size), lept_context_pop(c, size), size);
             return LEPT_PARSE_OK;
         }
-        else
-            return LEPT_PARSE_MISS_COMMA_OR_SQUARE_BRACKET;
+        else {
+            ret = LEPT_PARSE_MISS_COMMA_OR_SQUARE_BRACKET;
+            break;
+        }
     }
+    for (int i=0; i<size; ++i){
+        lept_free((lept_value*)lept_context_pop(c,sizeof(lept_value)));
+    }
+    return ret;
 }
 
 static int lept_parse_value(lept_context* c, lept_value* v) {
