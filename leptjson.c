@@ -30,6 +30,9 @@ typedef struct {
     size_t size, top;
 }lept_context;
 
+/**
+* @brief 动态分配栈空间，返回栈内元素的顶端地址
+* ****************************************************************************************/
 static void* lept_context_push(lept_context* c, size_t size) {
     void* ret;
     assert(size > 0);
@@ -45,11 +48,17 @@ static void* lept_context_push(lept_context* c, size_t size) {
     return ret;
 }
 
+/**
+* @brief 删除栈顶size个元素，返回删除后的栈顶地址
+* ****************************************************************************************/
 static void* lept_context_pop(lept_context* c, size_t size) {
     assert(c->top >= size);
     return c->stack + (c->top -= size);
 }
 
+/**
+* @brief 解析空格，跳过json中空格、tab等
+* ****************************************************************************************/
 static void lept_parse_whitespace(lept_context* c) {
     const char *p = c->json;
     while (*p == ' ' || *p == '\t' || *p == '\n' || *p == '\r')
@@ -57,6 +66,9 @@ static void lept_parse_whitespace(lept_context* c) {
     c->json = p;
 }
 
+/**
+* @brief 解析true, false, null
+* ****************************************************************************************/
 static int lept_parse_literal(lept_context* c, lept_value* v, const char* literal, lept_type type) {
     size_t i;
     EXPECT(c, literal[0]);
@@ -68,6 +80,9 @@ static int lept_parse_literal(lept_context* c, lept_value* v, const char* litera
     return LEPT_PARSE_OK;
 }
 
+/**
+* @brief 解析数字，按JSON标准
+* ****************************************************************************************/
 static int lept_parse_number(lept_context* c, lept_value* v) {
     const char* p = c->json;
     if (*p == '-') p++;
@@ -96,6 +111,9 @@ static int lept_parse_number(lept_context* c, lept_value* v) {
     return LEPT_PARSE_OK;
 }
 
+/**
+* @brief 解析十六进制
+* ****************************************************************************************/
 static const char* lept_parse_hex4(const char* p, unsigned* u) {
     int i;
     *u = 0;
@@ -110,6 +128,9 @@ static const char* lept_parse_hex4(const char* p, unsigned* u) {
     return p;
 }
 
+/**
+* @brief UTF-8
+* ****************************************************************************************/
 static void lept_encode_utf8(lept_context* c, unsigned u) {
     if (u <= 0x7F) 
         PUTC(c, u & 0xFF);
@@ -133,6 +154,9 @@ static void lept_encode_utf8(lept_context* c, unsigned u) {
 
 #define STRING_ERROR(ret) do { c->top = head; return ret; } while(0)
 
+/**
+* @brief 解析字符串
+* ****************************************************************************************/
 static int lept_parse_string_raw(lept_context* c, char** str, size_t* len) {
     size_t head = c->top;
     unsigned u, u2;
@@ -142,8 +166,8 @@ static int lept_parse_string_raw(lept_context* c, char** str, size_t* len) {
     for (;;) {
         char ch = *p++;
         switch (ch) {
-            case '\"':
-                *len = c->top - head;
+            case '\"': // 解析到第二个"，单个字符串解析完毕，从动态栈中pop并转移至c->json节点
+                *len = c->top - head; 
                 *str = lept_context_pop(c, *len);
                 c->json = p;
                 return LEPT_PARSE_OK;
@@ -347,30 +371,34 @@ int lept_parse(lept_value* v, const char* json) {
 }
 
 static void lept_stringify_string(lept_context* c, const char* s, size_t len) {
-    // 最终直接将stack保存的值返回
-    size_t i;
+    static const char hex_digits[] = { '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B', 'C', 'D', 'E', 'F' };
+    size_t i, size;
+    char* head, *p;
     assert(s != NULL);
-    PUTC(c, '"');
-    for (i=0; i<len; ++i){
+    p = head = lept_context_push(c, size = len * 6 + 2); /* "\u00xx..." */
+    *p++ = '"';
+    for (i = 0; i < len; i++) {
         unsigned char ch = (unsigned char)s[i];
-        switch(ch){
-            case '\"' : PUTS(c, "\\\"",2); break;
-            case '\\' : PUTS(c, "\\\\",2); break;
-            case '\b' : PUTS(c, "\\b", 2); break;
-            case '\f' : PUTS(c, "\\f", 2); break;
-            case '\n' : PUTS(c, "\\n", 2); break;
-            case '\r' : PUTS(c, "\\r", 2); break;
-            case '\t' : PUTS(c, "\\t", 2); break;
+        switch (ch) {
+            case '\"': *p++ = '\\'; *p++ = '\"'; break;
+            case '\\': *p++ = '\\'; *p++ = '\\'; break;
+            case '\b': *p++ = '\\'; *p++ = 'b';  break;
+            case '\f': *p++ = '\\'; *p++ = 'f';  break;
+            case '\n': *p++ = '\\'; *p++ = 'n';  break;
+            case '\r': *p++ = '\\'; *p++ = 'r';  break;
+            case '\t': *p++ = '\\'; *p++ = 't';  break;
             default:
-                if (ch<0x20){
-                    char buffer[7];
-                    sprintf(buffer, "\\u%04X", ch);
-                    PUTS(c, buffer, 6);
+                if (ch < 0x20) {
+                    *p++ = '\\'; *p++ = 'u'; *p++ = '0'; *p++ = '0';
+                    *p++ = hex_digits[ch >> 4];
+                    *p++ = hex_digits[ch & 15];
                 }
-                else PUTC(c, s[i]);
+                else
+                    *p++ = s[i];
         }
     }
-    PUTC(c, '"');
+    *p++ = '"';
+    c->top -= size - (p - head);
 }
 
 static void lept_stringify_value(lept_context* c, const lept_value* v) {

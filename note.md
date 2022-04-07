@@ -14,6 +14,16 @@ JSON库的三个需求：
 - 提供接口访问该数据结构
 - 将数据结构转化为JSON文本
 
+
+总结
+---
+解析是将JSON文本转化为树状结构，lept_value为其节点，节点有对象、数组、字符串、数字、布尔等类型
+
+
+
+
+
+
 头文件与API设计
 ---
 避免`#include`引入重复声明，利用宏加入include防范`include guard`
@@ -138,5 +148,35 @@ for (;;) {
 
 因此需谨慎考虑变量周期（尤其是指针）
 
+解析对象部分
+---
+重构：提取方法(extract method)
+原本的解析字符串函数，将字符串解析后直接写入lept_value
+但由于我们只需要解析字符串的功能，因此将原有函数拆分为**解析**与**写入**
+
+
+动态栈的理解：
+---
+```c
+typedef struct {
+    const char* json;
+    char* stack;
+    size_t size, top;
+}lept_context;
+```
+仅`lept_context_push`和`..._pop`使用动态栈
+`static void* lept_context_push(lept_context* c, size_t size)`向`c`的栈中压入大小为size的内容，内存不够时以1.5倍放大
+返回的是当前栈已使用空间的顶点（**不是容量的顶点**）
+使用时需调用`memcpy`函数
+
+
+生成器
+---
+解析器：将JSON文本解析为一个树形数据结构
+生成器：将树形数据结构转换为JSON文本
+
+需借助堆栈保存临时的解析结果，作为输出缓冲区
+
+inline或宏可以减少函数调用开销，什么原理？
 
 
