@@ -8,9 +8,6 @@ typedef enum { LEPT_NULL, LEPT_FALSE, LEPT_TRUE, LEPT_NUMBER, LEPT_STRING, LEPT_
 typedef struct lept_value lept_value;
 typedef struct lept_member lept_member;
 
-// JSON对象由对象成员组成
-// 对象成员：键值对
-// 键（JSON字符串）: 值（任何JSON值）
 struct lept_value {
     union {
         struct { lept_member* m; size_t size; }o;   /* object: members, member count */
@@ -21,9 +18,6 @@ struct lept_value {
     lept_type type;
 };
 
-// 成员由键值对组成, klen保留键字符串k的长度
-// 成员的键是字符串，出于性能考虑，不使用lept_value存储键
-// 避免浪费lept_type成员
 struct lept_member {
     char* k; size_t klen;   /* member key string, key string length */
     lept_value v;           /* member value */
@@ -49,6 +43,7 @@ enum {
 #define lept_init(v) do { (v)->type = LEPT_NULL; } while(0)
 
 int lept_parse(lept_value* v, const char* json);
+char* lept_stringify(const lept_value* v, size_t* length);
 
 void lept_free(lept_value* v);
 
