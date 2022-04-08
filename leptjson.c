@@ -21,10 +21,14 @@
 #define EXPECT(c, ch)       do { assert(*c->json == (ch)); c->json++; } while(0)
 #define ISDIGIT(ch)         ((ch) >= '0' && (ch) <= '9')
 #define ISDIGIT1TO9(ch)     ((ch) >= '1' && (ch) <= '9')
+
+// 将单个字符ch插入c的栈中, lept_context_push会分配内存并指向新内存，将该指针的内容赋ch即可
 #define PUTC(c, ch)         do { *(char*)lept_context_push(c, sizeof(char)) = (ch); } while(0)
+
+// 将长度为len的字符串s插入c的栈中
 #define PUTS(c, s, len)     memcpy(lept_context_push(c, len), s, len)
 
-typedef struct {
+typedef struct { // typedef 省事
     const char* json;
     char* stack;
     size_t size, top;
@@ -49,7 +53,7 @@ static void* lept_context_push(lept_context* c, size_t size) {
 }
 
 /**
-* @brief 删除栈顶size个元素，返回删除后的栈顶地址
+* @brief 返回栈顶下面第size位地址（第一个元素的首地址）
 * ****************************************************************************************/
 static void* lept_context_pop(lept_context* c, size_t size) {
     assert(c->top >= size);
@@ -68,6 +72,8 @@ static void lept_parse_whitespace(lept_context* c) {
 
 /**
 * @brief 解析true, false, null
+* 简单按字符逐个比较即可
+* @return 解析成功或失败，返回对应的枚举量
 * ****************************************************************************************/
 static int lept_parse_literal(lept_context* c, lept_value* v, const char* literal, lept_type type) {
     size_t i;
@@ -81,7 +87,8 @@ static int lept_parse_literal(lept_context* c, lept_value* v, const char* litera
 }
 
 /**
-* @brief 解析数字，按JSON标准
+* @brief 按JSON标准解析数字, 官方有对应流程图
+* 解析完毕后，c->json指向已读元素下一个位置, v内包含元素及类型
 * ****************************************************************************************/
 static int lept_parse_number(lept_context* c, lept_value* v) {
     const char* p = c->json;
@@ -156,6 +163,7 @@ static void lept_encode_utf8(lept_context* c, unsigned u) {
 
 /**
 * @brief 解析字符串
+* char** str   最终指向解析出的字符串首地址
 * ****************************************************************************************/
 static int lept_parse_string_raw(lept_context* c, char** str, size_t* len) {
     size_t head = c->top;
@@ -211,6 +219,10 @@ static int lept_parse_string_raw(lept_context* c, char** str, size_t* len) {
     }
 }
 
+/**
+* @brief 解析字符串，由于字符串长度不定，需使用c中的栈
+* s指向字符串首地址，将地址的字符串赋给v，并修改相应类型
+* ****************************************************************************************/
 static int lept_parse_string(lept_context* c, lept_value* v) {
     int ret;
     char* s;
@@ -222,6 +234,9 @@ static int lept_parse_string(lept_context* c, lept_value* v) {
 
 static int lept_parse_value(lept_context* c, lept_value* v);
 
+/**
+* @brief 解析数组
+* ****************************************************************************************/
 static int lept_parse_array(lept_context* c, lept_value* v) {
     size_t i, size = 0;
     int ret;
@@ -246,7 +261,9 @@ static int lept_parse_array(lept_context* c, lept_value* v) {
             c->json++;
             lept_parse_whitespace(c);
         }
-        else if (*c->json == ']') {
+        else if (*c->json == ']') { 
+            // 解析完毕，更新v的元素及其类型
+            // 数组是动态大小，因此使用c中的栈进行缓存，确定读取完毕后一次性复制
             c->json++;
             v->type = LEPT_ARRAY;
             v->u.a.size = size;
@@ -259,7 +276,8 @@ static int lept_parse_array(lept_context* c, lept_value* v) {
             break;
         }
     }
-    /* Pop and free values on the stack */
+    
+    // 释放分配的stack
     for (i = 0; i < size; i++)
         lept_free((lept_value*)lept_context_pop(c, sizeof(lept_value)));
     return ret;
@@ -336,6 +354,9 @@ static int lept_parse_object(lept_context* c, lept_value* v) {
     return ret;
 }
 
+/**
+* @brief 针对首字母区分不同元素类型，并进行相应函数调用
+* ****************************************************************************************/
 static int lept_parse_value(lept_context* c, lept_value* v) {
     switch (*c->json) {
         case 't':  return lept_parse_literal(c, v, "true", LEPT_TRUE);
@@ -349,6 +370,10 @@ static int lept_parse_value(lept_context* c, lept_value* v) {
     }
 }
 
+/**
+* @brief 将字符串形式的json文本，拷贝副本并存入c.json中
+* 对副本(c.json)进行解析
+* ****************************************************************************************/
 int lept_parse(lept_value* v, const char* json) {
     lept_context c;
     int ret;
@@ -365,7 +390,7 @@ int lept_parse(lept_value* v, const char* json) {
             ret = LEPT_PARSE_ROOT_NOT_SINGULAR;
         }
     }
-    assert(c.top == 0);
+    assert(c.top == 0); //释放c分配的栈内存
     free(c.stack);
     return ret;
 }
@@ -445,6 +470,9 @@ char* lept_stringify(const lept_value* v, size_t* length) {
     return c.stack;
 }
 
+/**
+* @brief 依据v的元素类型，调用free函数释放分配的动态内存
+* ****************************************************************************************/
 void lept_free(lept_value* v) {
     size_t i;
     assert(v != NULL);
@@ -505,6 +533,9 @@ size_t lept_get_string_length(const lept_value* v) {
     return v->u.s.len;
 }
 
+/**
+* @brief 将长度为len的字符串s，拷贝到v中
+* ****************************************************************************************/
 void lept_set_string(lept_value* v, const char* s, size_t len) {
     assert(v != NULL && (s != NULL || len == 0));
     lept_free(v);

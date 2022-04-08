@@ -19,9 +19,43 @@ JSON库的三个需求：
 ---
 解析是将JSON文本转化为树状结构，lept_value为其节点，节点有对象、数组、字符串、数字、布尔等类型
 
+涉及三个结构体：
+1. `lept_context`用于缓存副本，内部包含栈，可实现动态内存管理
+2. `lept_value`存放解析后JSON的节点内容及类型
+3. `lept_member`JSON的成员节点类型，包含一个键值对
+
+```cpp
+typedef struct {
+    const char* json;
+    char* stack;
+    size_t size, top;
+}lept_context;
+
+struct lept_value {
+    union {
+        struct { lept_member* m; size_t size; }o;   /* object: members, member count */
+        struct { lept_value* e; size_t size; }a;    /* array:  elements, element count */
+        struct { char* s; size_t len; }s;           /* string: null-terminated string, string length */
+        double n;                                   /* number */
+    }u;
+    lept_type type;
+};
+
+struct lept_member {
+    char* k; size_t klen;   /* member key string, key string length */
+    lept_value v;           /* member value */
+};
+```
 
 
+使用时，先将输入的字符串形式`const char* `的json文本复制一份副本，并存入c.json中，随后针对c.json进行解析
 
+解析调用`lept_parse_value`函数，解析成功会返回`LEPT_PARSE_OK`
+
+
+问题
+---
+- 为什么对c使用malloc，却对v使用free？
 
 
 头文件与API设计
