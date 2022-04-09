@@ -544,7 +544,7 @@ lept_type lept_get_type(const lept_value* v) {
 * @brief 比较两个lept_value类型变量
 * ****************************************************************************************/
 int lept_is_equal(const lept_value* lhs, const lept_value* rhs) {
-    size_t i;
+    size_t i, index;
     assert(lhs != NULL && rhs != NULL);
     if (lhs->type != rhs->type)
         return 0;
@@ -562,7 +562,14 @@ int lept_is_equal(const lept_value* lhs, const lept_value* rhs) {
                     return 0;
             return 1;
         case LEPT_OBJECT:
-            /* \todo */
+            if (lhs->u.o.size != rhs->u.o.size)
+                return 0;
+            for (int i=0; i<lhs->u.o.size; ++i){
+
+                index = lept_find_object_index(rhs, lhs->u.o.m[i].k, lhs->u.o.m[i].klen);
+                if (index == LEPT_KEY_NOT_EXIST) return 0;
+                if (!lept_is_equal(&lhs->u.o.m[i].v, &rhs->u.o.m[index].v)) return 0;
+            }
             return 1;
         default:
             return 1;
