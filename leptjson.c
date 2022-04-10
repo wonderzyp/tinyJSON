@@ -470,6 +470,9 @@ char* lept_stringify(const lept_value* v, size_t* length) {
     return c.stack;
 }
 
+/**
+* @brief 深度复制(deep copy)
+* ****************************************************************************************/
 void lept_copy(lept_value* dst, const lept_value* src) {
     assert(src != NULL && dst != NULL && src != dst);
     switch (src->type) {
@@ -478,6 +481,8 @@ void lept_copy(lept_value* dst, const lept_value* src) {
             break;
         case LEPT_ARRAY:
             /* \todo */
+            // lept_set_array(dst, )
+
             break;
         case LEPT_OBJECT:
             /* \todo */
@@ -489,6 +494,11 @@ void lept_copy(lept_value* dst, const lept_value* src) {
     }
 }
 
+
+/**
+* @brief 使用时尽可能使用lept_move和lept_swap
+* 此两者无需进行内存分配，swap甚至不需要内存释放
+* ****************************************************************************************/
 void lept_move(lept_value* dst, lept_value* src) {
     assert(dst != NULL && src != NULL && src != dst);
     lept_free(dst);
@@ -683,12 +693,30 @@ void lept_popback_array_element(lept_value* v) {
 lept_value* lept_insert_array_element(lept_value* v, size_t index) {
     assert(v != NULL && v->type == LEPT_ARRAY && index <= v->u.a.size);
     /* \todo */
-    return NULL;
+    if (v->u.a.size == v->u.a.capacity) lept_reserve_array(v, v->u.a.capacity==0?1:(v->u.a.size<<1));
+    // 插入元素会对该位置之后的元素造成影响
+
+    memcpy(&v->u.a.e[index+1], &v->u.a.e[index], (v->u.a.size-index)*sizeof(lept_value));
+    lept_init(&v->u.a.e[index]);
+    v->u.a.size++;
+
+    return &v->u.a.e[index];
 }
 
+/**
+* @brief 删除自index开始，共count个元素(不修改容量)
+* ****************************************************************************************/
 void lept_erase_array_element(lept_value* v, size_t index, size_t count) {
     assert(v != NULL && v->type == LEPT_ARRAY && index + count <= v->u.a.size);
     /* \todo */
+    // 删除元素影响后续所有元素
+    // passing- 但存疑
+
+    memcpy(&v->u.a.e[index], &v->u.a.e[index+count], (v->u.a.size-index-count)*sizeof(lept_value));
+    for (size_t i=v->u.a.size-count; i<v->u.a.size; ++i)
+        lept_free(&v->u.a.e[i]);
+
+    v->u.a.size -= count;
 }
 
 void lept_set_object(lept_value* v, size_t capacity) {
