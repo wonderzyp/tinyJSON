@@ -283,6 +283,9 @@ static int lept_parse_array(lept_context* c, lept_value* v) {
     return ret;
 }
 
+/**
+* @brief 解析对象
+* ****************************************************************************************/
 static int lept_parse_object(lept_context* c, lept_value* v) {
     size_t i, size;
     lept_member m;

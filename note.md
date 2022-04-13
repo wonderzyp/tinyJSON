@@ -1,75 +1,11 @@
-JSON(JavaScript Object Notation)
----
-json：一种用于数据交换的文本格式
-JSON为树状结构，仅包含六种数据类型
-- null
-- boolean
-- number
-- string
-- array
-- object
-
-JSON库的三个需求：
-- 将JSON文本解析为树状数据结构(parse)
-- 提供接口访问该数据结构
-- 将数据结构转化为JSON文本
-
-
-总结
----
-解析是将JSON文本转化为树状结构，lept_value为其节点，节点有对象、数组、字符串、数字、布尔等类型
-
-涉及三个结构体：
-1. `lept_context`用于缓存副本，内部包含栈，可实现动态内存管理
-2. `lept_value`存放解析后JSON的节点内容及类型
-3. `lept_member`JSON的成员节点类型，包含一个键值对
-
-```cpp
-typedef struct {
-    const char* json;
-    char* stack;
-    size_t size, top;
-}lept_context;
-
-struct lept_value {
-    union {
-        struct { lept_member* m; size_t size; }o;   /* object: members, member count */
-        struct { lept_value* e; size_t size; }a;    /* array:  elements, element count */
-        struct { char* s; size_t len; }s;           /* string: null-terminated string, string length */
-        double n;                                   /* number */
-    }u;
-    lept_type type;
-};
-
-struct lept_member {
-    char* k; size_t klen;   /* member key string, key string length */
-    lept_value v;           /* member value */
-};
-```
-
-
-使用时，先将输入的字符串形式`const char* `的json文本复制一份副本，并存入c.json中，随后针对c.json进行解析
+使用时，先将输入的字符串形式`const char* `的json文本复制一份副本存入c.json中，再针对c.json进行解析
 
 解析调用`lept_parse_value`函数，解析成功会返回`LEPT_PARSE_OK`
-
-
-问题
----
-- 为什么对c使用malloc，却对v使用free？
-
-
-头文件与API设计
----
-避免`#include`引入重复声明，利用宏加入include防范`include guard`
 
 单元测试
 ---
 一般软件开发以周期进行，加入功能再写该功能的单元测试
 另一种软件开发方法论：测试驱动开发(TDD, test-driven development)，先写测试再编写实现代码，直到通过所有测试
-
-
-宏编写技巧：
-当宏中存在多于一个语句，使用`do{/*...*/} while(0)`包裹成单个语句
 
 解析器
 ---
@@ -90,16 +26,6 @@ debug模式则会检测条件是否为真
 错误由程序员错误编码引起，使用断言
 运行环境引起（打开文件失败等），处理运行时错误（抛出异常等）
 
-
-TDD--重构(refactoring)
----
-重构：在不改变程序的外在功能前提下，改变程序的内部结构
-
-TDD目标引导性强，可能导致代码品质下降
-在通过测试后，应审视代码并判断是否有可改进的地方
-- DRY(don't repeat yourself)原则
-
-
 Union
 ---
 节省空间，但调用时可能显得很长
@@ -112,7 +38,6 @@ C11引入匿名Union
 解析数组
 ---
 解析数组的关键是内存管理
-
 #### 数据结构的选择
 数组：
 - 优：O(1)访问任意元素，内存紧凑且高速缓存一致性(cache coherence)
@@ -122,27 +47,9 @@ C11引入匿名Union
 - 优：可快速插入，但索引元素O(n)
 - 缺：额外内存开销（指向下一个元素的指针），内存不连续导致缓存不命中(cache miss)
 
-#### 动态内存管理
-解析JSON字符串时，借助临时缓冲区存储解析后结果，实现动态压入字符，最后一次性将整个字符串弹出
-动态的堆栈(stack)数据结构
-```c
-typedef struct {
-    const char* json;
-    char* stack;
-    size_t size, top;
-}lept_context;
-```
-`size`：当前的堆栈容量
-`top`： 栈顶位置，由于会拓展stack，因此`top`不可使用指针形式存储
-创建`lept_context`时初始化`stack`并释放内存
 
 #### 堆栈的压入压出
 按字节存储，每次可压入任意大小数据，返回数据的**起始指针**
-
-
-
-
-
 
 指向void*的指针
 ---
@@ -153,11 +60,6 @@ typedef struct {
 
 对于数据的元素释放，需将数组内的元素递归调用`lept_free()`，再释放本身的`v->u.a.e`
 
-
-ps：
-前向声明
-使用自身类型的指针，因此需前向声明
-// lept_parse_array与lept_parse_value之间会相互引用，需加入函数前向声明
 
 
 返回指针的生命周期
@@ -211,10 +113,13 @@ typedef struct {
 
 需借助堆栈保存临时的解析结果，作为输出缓冲区
 
-inline或宏可以减少函数调用开销，什么原理？
+凡涉及赋值，均存在资源所有权的问题
+一个值s，不能简单以指针的方式写入对象v，如此两个地方均拥有s
+这样会导致重复释放的bug
+方案1：深度复制
+方案2：将参数的拥有权转移至新增键值对，再将`value`设置为null，即移动语义`move semantics`
+
+定长数组在增删元素时，需重新分配数组，O(n2)的时间复杂度
+动态数组可解决此问题
 
 
-基础
----
-栈区内存由系统自动分配，函数结束时释放，数据结构是栈
-堆区程序员自行指明大小申请，链表实现，可能会产生碎片问题
